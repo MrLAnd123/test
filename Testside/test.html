@@ -161,6 +161,52 @@
     .gate-card button:hover { filter: brightness(1.07); }
     .gate-error { color: #c0392b; font-size: 0.85rem; margin-top: 12px; min-height: 1.1em; }
     body.locked { overflow: hidden; }
+
+    /* ---------- Responsivt / mobilvenligt layout ---------- */
+    /* Lidt smallere sidebar på mindre laptops/tablets */
+    @media (max-width: 900px) {
+      .sidebar { width: 300px; }
+    }
+
+    /* Telefon/tablet: stabl kort over indholdspanelet i stedet for side-om-side */
+    @media (max-width: 760px) {
+      body { height: 100dvh; }
+      header {
+        padding: 12px 16px;
+      }
+      header h1 { font-size: 1.15rem; gap: 9px; }
+      header h1 .logo { width: 30px; height: 30px; }
+      header p { font-size: 0.78rem; }
+      .badge { font-size: 0.72rem; padding: 5px 11px; }
+
+      .main { flex-direction: column; }
+      #map {
+        flex: 0 0 auto;
+        height: 52dvh;
+        min-height: 240px;
+        width: 100%;
+      }
+      .sidebar {
+        width: 100%;
+        flex: 1 1 auto;
+        border-left: none;
+        border-top: 1px solid var(--border);
+        padding: 14px;
+        gap: 12px;
+        -webkit-overflow-scrolling: touch;
+      }
+    }
+
+    /* Små telefoner: gør header og kort mere kompakt */
+    @media (max-width: 430px) {
+      header { padding: 10px 14px; }
+      header h1 { font-size: 1.02rem; }
+      header p { display: none; }
+      #map { height: 48dvh; }
+      .summary-grid { gap: 8px; }
+      .gate-card { padding: 28px 22px; }
+      .gate-card h2 { font-size: 1.2rem; }
+    }
   </style>
 </head>
 <body class="locked">
@@ -668,6 +714,13 @@
     map.on('moveend', scheduleLoad);
     map.on('zoomend', updateIconVisibility);
     yearEl.addEventListener('change', loadFields);
+
+    // Sørg for at kortet altid passer til skærmen (fx ved rotation/resize på mobil)
+    let resizeTimer = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => map.invalidateSize(), 150);
+    });
 
     loadFields();
 
