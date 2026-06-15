@@ -383,7 +383,46 @@
     let selectedLayer = null;
 
     // Cache + opslag af firmanavn ud fra CVR-nummer (offentligt CVR-register via cvrapi.dk)
+    // Cachen gemmes i localStorage, så opslag huskes mellem besøg og genindlæsninger.
+    const CVR_CACHE_KEY = 'cvrNameCache_v1';
+    const CVR_CACHE_TTL = 1000 * 60 * 60 * 24 * 30; // 30 dage
     const cvrCache = {};
+
+    (function loadCvrCache() {
+      try {
+        const raw = localStorage.getItem(CVR_CACHE_KEY);
+        if (!raw) return;
+        const stored = JSON.parse(raw);
+        const now = Date.now();
+        Object.keys(stored).forEach(cvr => {
+          const entry = stored[cvr];
+          // Understøt både gammelt format (ren streng) og nyt {name, ts}
+          if (entry && typeof entry === 'object') {
+            if (!entry.ts || now - entry.ts < CVR_CACHE_TTL) {
+              cvrCache[cvr] = entry.name;
+            }
+          } else {
+            cvrCache[cvr] = entry;
+          }
+        });
+      } catch {
+        /* ignorér ugyldig/utilgængelig cache */
+      }
+    })();
+
+    function persistCvrCache() {
+      try {
+        const out = {};
+        const now = Date.now();
+        Object.keys(cvrCache).forEach(cvr => {
+          out[cvr] = { name: cvrCache[cvr], ts: now };
+        });
+        localStorage.setItem(CVR_CACHE_KEY, JSON.stringify(out));
+      } catch {
+        /* localStorage kan være fuld eller blokeret – ignorér */
+      }
+    }
+
     async function lookupCompany(cvr) {
       if (!cvr || !/^\d{8}$/.test(cvr)) return null;
       if (cvrCache[cvr] !== undefined) return cvrCache[cvr];
@@ -394,6 +433,7 @@
         const data = await res.json();
         const name = data && data.name ? String(data.name) : null;
         cvrCache[cvr] = name;
+        persistCvrCache();
         return name;
       } catch {
         cvrCache[cvr] = null;
