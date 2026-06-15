@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markdata Danmark</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --green: #2e7d32; --green-dark: #1b5e20; --green-light: #e8f3e9;
+      --bg: #eef1ee; --card: #ffffff; --text: #1f2a24; --muted: #6b7a72;
+      --border: #e1e6e1;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif;
+      height: 100vh; display: flex; flex-direction: column;
+      background: var(--bg); color: var(--text);
+    }
+    header {
+      background: linear-gradient(120deg, #1b5e20 0%, #2e7d32 55%, #43a047 100%);
+      color: #fff; padding: 16px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px;
+      box-shadow: 0 2px 14px rgba(0,0,0,0.18); z-index: 600;
+    }
+    header h1 {
+      font-size: 1.4rem; font-weight: 700; letter-spacing: .2px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    header h1 .logo { width: 36px; height: 36px; flex: 0 0 auto; }
+    header p { font-size: 0.85rem; opacity: 0.92; margin-top: 3px; }
+    .badge {
+      background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.28);
+      padding: 6px 14px; border-radius: 999px; font-size: 0.8rem; font-weight: 500;
+      backdrop-filter: blur(4px);
+    }
+    .main { flex: 1; display: flex; min-height: 0; }
+    #map { flex: 1; }
+    .sidebar {
+      width: 348px; background: var(--bg); border-left: 1px solid var(--border);
+      padding: 18px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .sidebar::-webkit-scrollbar { width: 9px; }
+    .sidebar::-webkit-scrollbar-thumb { background: #c4ccc4; border-radius: 6px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    h2 {
+      font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px;
+      color: var(--muted); font-weight: 600; margin: 4px 2px -4px;
+    }
+    .card {
+      background: var(--card); border-radius: 16px; padding: 16px;
+      box-shadow: 0 2px 10px rgba(31,42,36,0.07);
+      font-size: 0.9rem; border: 1px solid var(--border);
+    }
+    .info-card.empty {
+      color: var(--muted); font-style: italic; text-align: center;
+      padding: 26px 16px;
+    }
+    .crop-banner {
+      display: flex; align-items: center; gap: 14px;
+      margin: -16px -16px 14px; padding: 16px 16px 14px;
+      border-radius: 16px 16px 0 0; color: #fff;
+    }
+    .crop-banner svg, .crop-banner .crop-img { width: 52px; height: 52px; flex: 0 0 auto;
+      filter: drop-shadow(0 1px 3px rgba(0,0,0,0.28)); }
+    .crop-banner .crop { font-size: 1.2rem; font-weight: 700; line-height: 1.15; }
+    .crop-banner .sub { font-size: 0.75rem; opacity: 0.9; margin-top: 2px; }
+    .info-row {
+      display: flex; justify-content: space-between; gap: 10px;
+      padding: 7px 0; border-bottom: 1px solid #f0f3f0; font-size: 0.88rem;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-row span:first-child { color: var(--muted); }
+    .info-row span:last-child { font-weight: 600; text-align: right; }
+    .summary-grid { display: flex; gap: 12px; }
+    .summary-grid .stat {
+      flex: 1; background: var(--green-light); border-radius: 12px;
+      padding: 12px; text-align: center;
+    }
+    .summary-grid .stat .num { font-size: 1.25rem; font-weight: 700; color: var(--green-dark); }
+    .summary-grid .stat .lbl { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; }
+    .status { font-size: 0.85rem; display: flex; align-items: center; gap: 8px; }
+    .status .dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; flex: 0 0 auto; }
+    .legend-item {
+      display: flex; align-items: center; gap: 11px;
+      padding: 6px 8px; border-radius: 10px; font-size: 0.86rem; font-weight: 500;
+      transition: background .15s;
+    }
+    .legend-item:hover { background: var(--green-light); }
+    .legend-icon {
+      width: 34px; height: 34px; border-radius: 10px; flex: 0 0 auto;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06);
+    }
+    .legend-icon svg, .legend-icon .crop-img { width: 24px; height: 24px; }
+    .controls label {
+      display: block; font-size: 0.78rem; margin-bottom: 6px;
+      color: var(--text); font-weight: 600;
+    }
+    .controls select {
+      width: 100%; padding: 9px 12px; border: 1px solid var(--border);
+      border-radius: 10px; font-size: 0.9rem; font-family: inherit;
+      background: var(--card); color: var(--text); cursor: pointer;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .controls select:hover { border-color: #b9c4b9; }
+    .controls select:focus {
+      outline: none; border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(46,125,50,0.15);
+    }
+    .leaflet-container { font-family: inherit; }
+
+    /* Fjern browserens fokus-firkant rundt om en klikket mark */
+    .leaflet-interactive:focus { outline: none; }
+    path.leaflet-interactive { outline: none; }
+
+    /* Afgrøde-ikoner på selve kortet */
+    .field-icon { background: none; border: none; }
+    .field-icon img {
+      width: 34px; height: 34px; display: block;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.45));
+      pointer-events: none;
+    }
+
+    /* Adgangskode-skærm */
+    .gate {
+      position: fixed; inset: 0; z-index: 2000;
+      background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 50%, #43a047 100%);
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .gate.hidden { display: none; }
+    .gate-card {
+      background: var(--card); border-radius: 20px; padding: 36px 32px;
+      width: 100%; max-width: 380px; text-align: center;
+      box-shadow: 0 18px 50px rgba(0,0,0,0.3);
+      animation: gate-in .4s ease;
+    }
+    @keyframes gate-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    .gate-card .gate-logo { width: 64px; height: 64px; margin: 0 auto 14px; }
+    .gate-card h2 { font-size: 1.35rem; color: var(--green-dark); text-transform: none; letter-spacing: 0; margin: 0 0 6px; }
+    .gate-card p { font-size: 0.88rem; color: var(--muted); margin-bottom: 22px; }
+    .gate-card input {
+      width: 100%; padding: 12px 14px; font-size: 1rem; font-family: inherit;
+      border: 1px solid var(--border); border-radius: 12px; text-align: center;
+      letter-spacing: 1px; transition: border-color .15s, box-shadow .15s;
+    }
+    .gate-card input:focus {
+      outline: none; border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(46,125,50,0.15);
+    }
+    .gate-card button {
+      width: 100%; margin-top: 14px; padding: 12px; font-size: 1rem; font-weight: 600;
+      font-family: inherit; color: #fff; border: none; border-radius: 12px; cursor: pointer;
+      background: linear-gradient(120deg, #2e7d32, #43a047); transition: filter .15s;
+    }
+    .gate-card button:hover { filter: brightness(1.07); }
+    .gate-error { color: #c0392b; font-size: 0.85rem; margin-top: 12px; min-height: 1.1em; }
+    body.locked { overflow: hidden; }
+  </style>
+</head>
+<body class="locked">
+  <div id="gate" class="gate">
+    <div class="gate-card">
+      <svg class="gate-logo" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="24" cy="24" r="22" fill="#e8f3e9"/>
+        <path d="M24 42V20" stroke="#86b049" stroke-width="2.4" stroke-linecap="round"/>
+        <g fill="#f4c430" stroke="#c79a16" stroke-width="0.8">
+          <ellipse cx="24" cy="11" rx="3" ry="4.8"/>
+          <ellipse cx="18.8" cy="15" rx="2.7" ry="4.3" transform="rotate(-26 18.8 15)"/>
+          <ellipse cx="29.2" cy="15" rx="2.7" ry="4.3" transform="rotate(26 29.2 15)"/>
+          <ellipse cx="18.4" cy="21" rx="2.7" ry="4.3" transform="rotate(-26 18.4 21)"/>
+          <ellipse cx="29.6" cy="21" rx="2.7" ry="4.3" transform="rotate(26 29.6 21)"/>
+        </g>
+      </svg>
+      <h2>Markdata Danmark</h2>
+      <p>Indtast adgangskoden for at få adgang til siden.</p>
+      <form id="gateForm" autocomplete="off">
+        <input id="gateInput" type="password" placeholder="Adgangskode" aria-label="Adgangskode" autofocus>
+        <button type="submit">Få adgang</button>
+        <div id="gateError" class="gate-error"></div>
+      </form>
+    </div>
+  </div>
+  <header>
+    <div>
+      <h1>
+        <svg class="logo" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="24" cy="24" r="22" fill="rgba(255,255,255,0.14)"/>
+          <path d="M24 42V20" stroke="#cddc39" stroke-width="2.4" stroke-linecap="round"/>
+          <g fill="#fff59d" stroke="#cddc39" stroke-width="0.8">
+            <ellipse cx="24" cy="11" rx="3" ry="4.8"/>
+            <ellipse cx="18.8" cy="15" rx="2.7" ry="4.3" transform="rotate(-26 18.8 15)"/>
+            <ellipse cx="29.2" cy="15" rx="2.7" ry="4.3" transform="rotate(26 29.2 15)"/>
+            <ellipse cx="18.4" cy="21" rx="2.7" ry="4.3" transform="rotate(-26 18.4 21)"/>
+            <ellipse cx="29.6" cy="21" rx="2.7" ry="4.3" transform="rotate(26 29.6 21)"/>
+          </g>
+        </svg>
+        Markdata Danmark
+      </h1>
+      <p>Klik på en mark for at se hvilken afgrøde der dyrkes</p>
+    </div>
+    <span class="badge">🌍 Live markkort</span>
+  </header>
+  <div class="main">
+    <div id="map"></div>
+    <aside class="sidebar">
+      <div class="controls card">
+        <label for="cropFilter">Filtrer efter afgrøde</label>
+        <select id="cropFilter">
+          <option value="">Vis alle afgrøder</option>
+        </select>
+      </div>
+      <div class="controls card">
+        <label for="companyFilter">Filtrer efter virksomhed</label>
+        <select id="companyFilter">
+          <option value="">Vis alle virksomheder</option>
+        </select>
+      </div>
+      <div class="controls card">
+        <label for="yearFilter">Ansøgningsår</label>
+        <select id="yearFilter"></select>
+      </div>
+      <h2>Markinformation</h2>
+      <div id="info" class="info-card card empty">Ingen mark valgt. Klik på en mark på kortet.</div>
+      <div id="status" class="card status">Zoom ind på kortet for at hente markdata…</div>
+      <div id="summary" class="card"></div>
+      <h2>Signaturforklaring</h2>
+      <div id="legend" class="card"></div>
+    </aside>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Faste farver pr. kendt afgrøde – ukendte afgrøder får automatisk en farve
+    const cropColors = {
+      'Vinterhvede': '#f1c40f',
+      'Vårbyg': '#e67e22',
+      'Vinterraps': '#f39c12',
+      'Kartofler': '#8e44ad',
+      'Majs': '#27ae60',
+      'Sukkerroer': '#16a085',
+      'Græs i omdrift': '#2ecc71',
+      'Havre': '#d4ac0d'
+    };
+    const palette = ['#f1c40f','#e67e22','#f39c12','#8e44ad','#27ae60','#16a085','#2ecc71','#d4ac0d','#2980b9','#c0392b','#1abc9c','#9b59b6','#34495e','#e74c3c','#3498db','#7f8c8d'];
+    let paletteIdx = 0;
+    function colorFor(crop) {
+      if (!cropColors[crop]) cropColors[crop] = palette[paletteIdx++ % palette.length];
+      return cropColors[crop];
+    }
+
+    // Selvtegnede SVG-illustrationer – ét billede pr. afgrøde
+    // Ikon-filer (SVG) pr. afgrøde – ligger i mappen "ikoner"
+    const CROP_ICONS = {
+      'Vinterhvede': 'ikoner/vinterhvede.svg',
+      'Havre': 'ikoner/havre.svg',
+      'Vårbyg': 'ikoner/vaarbyg.svg',
+      'Vinterraps': 'ikoner/vinterraps.svg',
+      'Kartofler': 'ikoner/kartofler.svg',
+      'Majs': 'ikoner/majs.svg',
+      'Sukkerroer': 'ikoner/sukkerroer.svg',
+      'Græs i omdrift': 'ikoner/graes-i-omdrift.svg',
+      'Hvidkål': 'ikoner/hvidkaal.svg',
+      'Rødkål': 'ikoner/roedkaal.svg',
+      'Grønkål': 'ikoner/groenkaal.svg',
+      'Blomkål': 'ikoner/blomkaal.svg',
+      'Broccoli': 'ikoner/broccoli.svg',
+      'Spidskål': 'ikoner/spidskaal.svg',
+      'Kinakål': 'ikoner/kinakaal.svg',
+      'Rosenkål': 'ikoner/rosenkaal.svg',
+      'Porrer': 'ikoner/porrer.svg',
+      'Porre': 'ikoner/porrer.svg'
+    };
+    const GENERIC_ICON = 'ikoner/ukendt.svg';
+    const KAAL_ICON = 'ikoner/kaal.svg';
+    function cropIconUrl(crop) {
+      if (CROP_ICONS[crop]) return CROP_ICONS[crop];
+      const c = (crop || '').toLowerCase();
+      // Match efter delnavn så fx "Hvidkål, tidlig" og "Porre, vinter" også rammer
+      if (c.includes('blomkål')) return 'ikoner/blomkaal.svg';
+      if (c.includes('broccoli')) return 'ikoner/broccoli.svg';
+      if (c.includes('rosenkål')) return 'ikoner/rosenkaal.svg';
+      if (c.includes('grønkål')) return 'ikoner/groenkaal.svg';
+      if (c.includes('spidskål')) return 'ikoner/spidskaal.svg';
+      if (c.includes('kinakål')) return 'ikoner/kinakaal.svg';
+      if (c.includes('hvidkål')) return 'ikoner/hvidkaal.svg';
+      if (c.includes('rødkål')) return 'ikoner/roedkaal.svg';
+      if (c.includes('porre') || c.includes('porrer')) return 'ikoner/porrer.svg';
+      if (c.includes('kål')) return KAAL_ICON;
+      return GENERIC_ICON;
+    }
+    function cropArt(crop) {
+      return `<img class="crop-img" src="${cropIconUrl(crop)}" alt="${crop}" loading="lazy">`;
+    }
+
+    // Marker hentes fra Landbrugsstyrelsens offentlige WFS (Markkort)
+    let fields = [];
+
+    // Init kort – starter ved Vester Egense / Gyldensteen (centrum af angivet bbox)
+    const map = L.map('map').setView([55.56935, 10.20960], 16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap-bidragydere',
+      maxZoom: 19
+    }).addTo(map);
+
+    const infoEl = document.getElementById('info');
+    const summaryEl = document.getElementById('summary');
+    const statusEl = document.getElementById('status');
+    const layers = {};
+
+    function updateSummary() {
+      const visible = fields.filter(fieldMatches);
+      const totalArea = visible.reduce((sum, f) => sum + f.area, 0);
+      summaryEl.innerHTML = `
+        <div class="summary-grid">
+          <div class="stat"><div class="num">${visible.length}</div><div class="lbl">Marker</div></div>
+          <div class="stat"><div class="num">${totalArea.toFixed(1)}</div><div class="lbl">Hektar</div></div>
+        </div>
+      `;
+    }
+
+    function defaultStyle(crop) {
+      return { color: '#333', weight: 1, fillColor: colorFor(crop), fillOpacity: 0.6 };
+    }
+    function highlightStyle(crop) {
+      return { color: '#000', weight: 3, fillColor: colorFor(crop), fillOpacity: 0.85 };
+    }
+
+    let selectedLayer = null;
+
+    // Cache + opslag af firmanavn ud fra CVR-nummer (offentligt CVR-register via cvrapi.dk)
+    const cvrCache = {};
+    async function lookupCompany(cvr) {
+      if (!cvr || !/^\d{8}$/.test(cvr)) return null;
+      if (cvrCache[cvr] !== undefined) return cvrCache[cvr];
+      try {
+        const url = 'https://cvrapi.dk/api?search=' + cvr + '&country=dk';
+        const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const name = data && data.name ? String(data.name) : null;
+        cvrCache[cvr] = name;
+        return name;
+      } catch {
+        cvrCache[cvr] = null;
+        return null;
+      }
+    }
+
+    function fillCompanyName(cvr) {
+      const el = document.getElementById('companyName');
+      if (!el) return;
+      if (!cvr || !/^\d{8}$/.test(cvr)) {
+        el.textContent = '—';
+        return;
+      }
+      el.textContent = 'Henter…';
+      lookupCompany(cvr).then(name => {
+        // Vis kun hvis brugeren stadig ser samme mark/CVR
+        if (el.dataset.cvr !== cvr) return;
+        el.textContent = name || 'Ukendt firma';
+      });
+    }
+
+    function showInfo(field) {
+      const c = colorFor(field.crop);
+      const cvr = field.farmer && /^\d{8}$/.test(field.farmer) ? field.farmer : '';
+      infoEl.classList.remove('empty');
+      infoEl.innerHTML = `
+        <div class="crop-banner" style="background:linear-gradient(120deg, ${c}, ${c}cc)">
+          ${cropArt(field.crop)}
+          <div><div class="crop">${field.crop}</div><div class="sub">Mark ${field.name}</div></div>
+        </div>
+        <div class="info-row"><span>Firma</span><span id="companyName" data-cvr="${cvr}">—</span></div>
+        <div class="info-row"><span>CVR</span><span>${field.farmer}</span></div>
+        <div class="info-row"><span>Markblok</span><span>${field.block}</span></div>
+        <div class="info-row"><span>Areal</span><span>${field.area} ha</span></div>
+        <div class="info-row"><span>Journalnr.</span><span>${field.journal}</span></div>
+      `;
+      fillCompanyName(cvr);
+    }
+
+    const legendEl = document.getElementById('legend');
+    const filterEl = document.getElementById('cropFilter');
+    const companyEl = document.getElementById('companyFilter');
+    let companyToken = 0;
+
+    // Fælles matcher: en mark vises kun hvis den passer både afgrøde- og virksomhedsfilter
+    function fieldMatches(field) {
+      const crop = filterEl.value;
+      const cvr = companyEl.value;
+      if (crop && field.crop !== crop) return false;
+      if (cvr && field.farmer !== cvr) return false;
+      return true;
+    }
+
+    // Ikon-markører på kortet (vises når man er zoomet tilstrækkeligt ind)
+    const iconMarkers = {};
+    const ICON_ZOOM = 15;
+
+    function clearFields() {
+      Object.values(layers).forEach(l => map.removeLayer(l));
+      Object.values(iconMarkers).forEach(m => map.removeLayer(m));
+      for (const k in layers) delete layers[k];
+      for (const k in iconMarkers) delete iconMarkers[k];
+      fields = [];
+      selectedLayer = null;
+    }
+
+    function updateIconVisibility() {
+      const show = map.getZoom() >= ICON_ZOOM;
+      fields.forEach(field => {
+        const m = iconMarkers[field.id];
+        if (!m) return;
+        if (show && fieldMatches(field)) {
+          if (!map.hasLayer(m)) m.addTo(map);
+        } else if (map.hasLayer(m)) {
+          map.removeLayer(m);
+        }
+      });
+    }
+
+    function renderFields() {
+      // Nulstil lag, signaturforklaring og filter
+      legendEl.innerHTML = '';
+      const prevFilter = filterEl.value;
+      filterEl.innerHTML = '<option value="">Vis alle afgrøder</option>';
+
+      fields.forEach(field => {
+        const poly = L.polygon(field.coords, defaultStyle(field.crop)).addTo(map);
+        poly.bindTooltip(`${field.name} – ${field.crop}`, { sticky: true });
+        poly.on('click', () => {
+          if (selectedLayer) {
+            selectedLayer.setStyle(defaultStyle(selectedLayer._field.crop));
+          }
+          poly.setStyle(highlightStyle(field.crop));
+          selectedLayer = poly;
+          showInfo(field);
+        });
+        poly._field = field;
+        layers[field.id] = poly;
+
+        // Afgrøde-ikon midt på marken – vises kun ved tilstrækkeligt zoom
+        const icon = L.divIcon({
+          className: 'field-icon',
+          html: `<img src="${cropIconUrl(field.crop)}" alt="${field.crop}">`,
+          iconSize: [34, 34],
+          iconAnchor: [17, 17]
+        });
+        const marker = L.marker(poly.getBounds().getCenter(), {
+          icon, interactive: false, keyboard: false
+        });
+        iconMarkers[field.id] = marker;
+      });
+
+      const usedCrops = [...new Set(fields.map(f => f.crop))].sort((a, b) => a.localeCompare(b, 'da'));
+      if (!usedCrops.length) {
+        legendEl.innerHTML = '<div style="color:var(--muted);font-style:italic;font-size:0.85rem">Ingen afgrøder vist endnu.</div>';
+      }
+      usedCrops.forEach(crop => {
+        const c = colorFor(crop);
+        const item = document.createElement('div');
+        item.className = 'legend-item';
+        item.innerHTML = `<span class="legend-icon" style="background:${c}22">${cropArt(crop)}</span>${crop}`;
+        legendEl.appendChild(item);
+
+        const opt = document.createElement('option');
+        opt.value = crop;
+        opt.textContent = crop;
+        filterEl.appendChild(opt);
+      });
+
+      // Bevar tidligere filtervalg hvis afgrøden stadig findes
+      if (prevFilter && usedCrops.includes(prevFilter)) {
+        filterEl.value = prevFilter;
+      }
+      populateCompanyFilter();
+      applyFilter();
+    }
+
+    async function populateCompanyFilter() {
+      const prev = companyEl.value;
+      const usedCvrs = [...new Set(fields.map(f => f.farmer).filter(c => /^\d{8}$/.test(c)))];
+      companyEl.innerHTML = '<option value="">Vis alle virksomheder</option>';
+      if (!usedCvrs.length) {
+        companyEl.disabled = true;
+        return;
+      }
+      companyEl.disabled = false;
+
+      const optByCvr = {};
+      usedCvrs.forEach(cvr => {
+        const opt = document.createElement('option');
+        opt.value = cvr;
+        opt.textContent = 'CVR ' + cvr + ' – henter navn…';
+        companyEl.appendChild(opt);
+        optByCvr[cvr] = opt;
+      });
+      if (prev && usedCvrs.includes(prev)) companyEl.value = prev;
+
+      // Hent firmanavne sekventielt (skåner CVR-tjenestens grænse) og brug cache
+      const token = ++companyToken;
+      for (const cvr of usedCvrs) {
+        if (token !== companyToken) return; // nye markdata overtog
+        const name = await lookupCompany(cvr);
+        if (token !== companyToken) return;
+        const opt = optByCvr[cvr];
+        if (opt) opt.textContent = (name || 'Ukendt firma') + ' (' + cvr + ')';
+      }
+
+      // Sortér alfabetisk efter firmanavn
+      if (token !== companyToken) return;
+      const selected = companyEl.value;
+      const opts = [...companyEl.querySelectorAll('option')].slice(1);
+      opts.sort((a, b) => a.textContent.localeCompare(b.textContent, 'da'));
+      opts.forEach(o => companyEl.appendChild(o));
+      companyEl.value = selected;
+    }
+
+    function applyFilter() {
+      fields.forEach(field => {
+        const layer = layers[field.id];
+        if (!layer) return;
+        if (fieldMatches(field)) {
+          if (!map.hasLayer(layer)) layer.addTo(map);
+        } else {
+          if (map.hasLayer(layer)) map.removeLayer(layer);
+        }
+      });
+      updateSummary();
+      updateIconVisibility();
+    }
+
+    // Filtrering
+    filterEl.addEventListener('change', applyFilter);
+    companyEl.addEventListener('change', applyFilter);
+
+    // ----- Hent data fra Landbrugsstyrelsens offentlige WFS (Markkort) -----
+    // GeoServer WFS. Markerne ligger native i EPSG:25832, men vi beder om
+    // GeoJSON i EPSG:4326, hvor koordinater leveres som [lng, lat].
+    const WFS_BASE = 'https://geodata.fvm.dk/geoserver/wfs';
+    const MIN_ZOOM = 15;        // under dette zoomniveau vises markdata ikke
+    const MAX_FEATURES = 4000;  // sikkerhedsgrænse pr. forespørgsel
+    const yearEl = document.getElementById('yearFilter');
+    // Tilgængelige ansøgningsår (Marker_2008 … Marker_2026)
+    for (let y = 2026; y >= 2015; y--) {
+      const opt = document.createElement('option');
+      opt.value = String(y);
+      opt.textContent = String(y);
+      yearEl.appendChild(opt);
+    }
+    yearEl.value = '2026';
+
+    function ringsToLatLng(coords) {
+      // GeoJSON-ringe er [lng, lat]; Leaflet vil have [lat, lng]
+      return coords.map(ring => ring.map(([lng, lat]) => [lat, lng]));
+    }
+
+    function buildField(props, geometry, idx) {
+      const p = props || {};
+      const crop = p.Afgroede || 'Ukendt afgrøde';
+      const marknr = p.Marknr != null ? String(p.Marknr) : String(idx + 1);
+      const area = p.IMK_areal != null ? Number(p.IMK_areal) : 0;
+
+      let coords = [];
+      if (geometry.type === 'Polygon') {
+        coords = ringsToLatLng(geometry.coordinates);
+      } else if (geometry.type === 'MultiPolygon') {
+        coords = geometry.coordinates.map(poly => ringsToLatLng(poly));
+      }
+      return {
+        id: marknr + '-' + idx,
+        name: marknr,
+        crop,
+        area: Number.isFinite(area) ? Math.round(area * 100) / 100 : 0,
+        farmer: p.CVR != null ? String(p.CVR) : '—',
+        journal: p.Journalnr != null ? String(p.Journalnr) : '—',
+        block: p.Markblok != null ? String(p.Markblok) : '—',
+        coords
+      };
+    }
+
+    let loadController = null;
+    let loadTimer = null;
+
+    async function loadFields() {
+      if (map.getZoom() < MIN_ZOOM) {
+        clearFields();
+        legendEl.innerHTML = '';
+        summaryEl.innerHTML = '';
+        statusEl.textContent = 'Zoom længere ind for at hente markdata (zoomniveau ' + MIN_ZOOM + '+).';
+        statusEl.style.color = '#555';
+        return;
+      }
+
+      // Afbryd evt. tidligere forespørgsel
+      if (loadController) loadController.abort();
+      loadController = new AbortController();
+
+      const b = map.getBounds();
+      const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].join(',')
+        + ',urn:ogc:def:crs:OGC:1.3:CRS84';
+      const params = new URLSearchParams({
+        service: 'WFS',
+        version: '2.0.0',
+        request: 'GetFeature',
+        typeNames: 'Marker:Marker_' + yearEl.value,
+        outputFormat: 'application/json',
+        srsName: 'EPSG:4326',
+        count: String(MAX_FEATURES),
+        bbox
+      });
+      const url = WFS_BASE + '?' + params.toString();
+
+      statusEl.textContent = 'Henter markdata…';
+      statusEl.style.color = '#555';
+
+      try {
+        const res = await fetch(url, { signal: loadController.signal });
+        if (!res.ok) throw new Error('HTTP ' + res.status + ' fra WFS-tjenesten');
+        // Tjenesten leverer ISO-8859-1; fetch().json() antager UTF-8 og ville
+        // ødelægge æ/ø/å. Vi afkoder derfor selv ud fra Content-Type-charset.
+        const buf = await res.arrayBuffer();
+        const ct = res.headers.get('content-type') || '';
+        const m = /charset=([^;\s]+)/i.exec(ct);
+        let text;
+        try {
+          text = new TextDecoder(m ? m[1] : 'utf-8').decode(buf);
+        } catch {
+          text = new TextDecoder('utf-8').decode(buf);
+        }
+        const data = JSON.parse(text);
+        const features = Array.isArray(data.features) ? data.features : [];
+
+        clearFields();
+        fields = features
+          .filter(f => f && f.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'))
+          .map((f, i) => buildField(f.properties, f.geometry, i))
+          .filter(f => f.coords.length);
+
+        renderFields();
+
+        if (!fields.length) {
+          statusEl.textContent = 'Ingen marker i det viste område. Prøv at flytte kortet.';
+          statusEl.style.color = '#555';
+        } else {
+          const capped = features.length >= MAX_FEATURES ? ' (vis et mindre område for at se alle)' : '';
+          statusEl.textContent = 'Viser ' + fields.length + ' marker for ' + yearEl.value + capped + '.';
+          statusEl.style.color = '#2e7d32';
+        }
+      } catch (err) {
+        if (err.name === 'AbortError') return; // ny forespørgsel overtog
+        statusEl.textContent = 'Kunne ikke hente data: ' + err.message;
+        statusEl.style.color = '#c0392b';
+      }
+    }
+
+    function scheduleLoad() {
+      clearTimeout(loadTimer);
+      loadTimer = setTimeout(loadFields, 400);
+    }
+
+    map.on('moveend', scheduleLoad);
+    map.on('zoomend', updateIconVisibility);
+    yearEl.addEventListener('change', loadFields);
+
+    loadFields();
+
+    // ----- Adgangskode-skærm -----
+    const ACCESS_CODE = 'markdata';
+    const gateEl = document.getElementById('gate');
+    const gateForm = document.getElementById('gateForm');
+    const gateInput = document.getElementById('gateInput');
+    const gateError = document.getElementById('gateError');
+
+    function unlockSite() {
+      gateEl.classList.add('hidden');
+      document.body.classList.remove('locked');
+      // Sørg for at kortet får korrekt størrelse efter overlay fjernes
+      setTimeout(() => { map.invalidateSize(); }, 50);
+    }
+
+    gateForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (gateInput.value.trim().toLowerCase() === ACCESS_CODE) {
+        unlockSite();
+      } else {
+        gateError.textContent = 'Forkert adgangskode. Prøv igen.';
+        gateInput.value = '';
+        gateInput.focus();
+      }
+    });
+  </script>
+</body>
+</html>
