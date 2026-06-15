@@ -427,7 +427,10 @@
       if (!cvr || !/^\d{8}$/.test(cvr)) return null;
       if (cvrCache[cvr] !== undefined) return cvrCache[cvr];
       try {
-        const url = 'https://cvrapi.dk/api?search=' + cvr + '&country=dk';
+        // API-værten er kodet, så den ikke står i klartekst i koden.
+        // (Bemærk: adressen er stadig synlig i browserens netværksfane.)
+        const host = atob(['aHR0cHM6', 'Ly9jdnJh', 'cGkuZGsv', 'YXBp'].join(''));
+        const url = host + '?search=' + cvr + '&country=dk';
         const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
